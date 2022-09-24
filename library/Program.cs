@@ -8,7 +8,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 namespace EmotionFerPlus {
-    public static class Program {
+    public static class Emotions {
         public static List <(string, double)> GetMostLikelyEmotions (string [] args) {
 
             using Image<Rgb24> image = Image.Load<Rgb24>(args.FirstOrDefault() ?? "face1.png");

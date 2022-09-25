@@ -8,31 +8,44 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 namespace EmotionFerPlus {
+    public interface IErrorReporter
+    {   
+        void ReportError(string message);
+    }
     public static class Emotions {
-        public static List <(string, double)> GetMostLikelyEmotions (string [] args) {
+        public static async Task<IEnumerable <(string, double)>> GetMostLikelyEmotions (IErrorReporter reporter, byte[] img) {
 
-            using Image<Rgb24> image = Image.Load<Rgb24>(args.FirstOrDefault() ?? "face1.png");
-            image.Mutate(ctx => {
-                ctx.Resize(new Size(64,64));
-                // ctx.Grayscale();
-            });
-
-            using var modelStream = typeof(Emotions).Assembly.GetManifestResourceStream("EmotionFerPlus.emotion-ferplus-7.onnx");
-            using var memoryStream = new MemoryStream();
-            modelStream.CopyTo(memoryStream);
-            using var session = new InferenceSession(memoryStream.ToArray()); 
-
-            var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("Input3", GrayscaleImageToTensor(image)) };
-            using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = session.Run(inputs);
-            var emotions = Softmax(results.First(v => v.Name == "Plus692_Output_0").AsEnumerable<float>().ToArray());
-
-            string[] keys = { "neutral", "happiness", "surprise", "sadness", "anger", "disgust", "fear", "contempt" };
-
+            IErrorReporter myReporter = reporter;
             var L = new List <(string, double)>();
-            foreach (var item in keys.Zip(emotions)) {
-                L.Add(item);
+
+            try {
+                return await Task<IEnumerable <(string, double)>>.Factory.StartNew(() => {
+                    using Image<Rgb24> image = Image.Load<Rgb24>(img);
+                    image.Mutate(ctx => {
+                        ctx.Resize(new Size(64,64));
+                        // ctx.Grayscale();
+                    });
+
+                    using var modelStream = typeof(Emotions).Assembly.GetManifestResourceStream("emotion.onnx");
+                    using var memoryStream = new MemoryStream();
+                    modelStream.CopyTo(memoryStream);
+                    using var session = new InferenceSession(memoryStream.ToArray()); 
+
+                    var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("Input3", GrayscaleImageToTensor(image)) };
+                    using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = session.Run(inputs);
+                    var emotions = Softmax(results.First(v => v.Name == "Plus692_Output_0").AsEnumerable<float>().ToArray());
+
+                    string[] keys = { "neutral", "happiness", "surprise", "sadness", "anger", "disgust", "fear", "contempt" };
+                    foreach (var item in keys.Zip(emotions)) {
+                        L.Add(item);
+                    }
+                    return L;
+                });
             }
-            return L;
+            catch (Exception ex) {
+                myReporter.ReportError(ex.Message);
+                return L;
+            }
 
             DenseTensor<float> GrayscaleImageToTensor(Image<Rgb24> img)
             {

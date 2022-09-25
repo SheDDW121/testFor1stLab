@@ -5,6 +5,7 @@ namespace app
 {
   class Program
   {
+    static object locker = new object();
     static async Task Main(string[] args)
     {
       if (args.Length == 0) {
@@ -17,7 +18,7 @@ namespace app
         }
         await Task.WhenAll(taskArr);
       }
-      Console.WriteLine("Smth");
+      Console.WriteLine("The End");
     }
     static async Task getResults (string? fname = null, int num = 0, int c = 40) {
       try {
@@ -25,14 +26,17 @@ namespace app
 
             
         var L = await Emotions.GetMostLikelyEmotions(new ConsoleReporter(), img);
-        for (int i = 0; i < c; i++) 
-          L = await Emotions.GetMostLikelyEmotions(new ConsoleReporter(), img);
+        // for (int i = 0; i < c; i++) 
+        //   L = await Emotions.GetMostLikelyEmotions(new ConsoleReporter(), img);
 
         // for (int i = 0; i < 1000; i++)
         //   Console.Write(num);
 
-        foreach(var item in L) {
-          Console.WriteLine($"{item.Item1}: {item.Item2}");
+        lock(locker) {
+          Console.WriteLine($"\n");
+          foreach(var item in L) {
+            Console.WriteLine($"{item.Item1}: {item.Item2}");
+          }
         }
       }
       catch (Exception ex) {
@@ -40,12 +44,12 @@ namespace app
       }
     }
 
-    static async Task tasks1 (string args, int num) {
-      await getResults(args, num);
-      await getResults(args, num+1);
-      await getResults(args, num+2);
-      await getResults(args, num+3);
-    }
+    // static async Task tasks1 (string args, int num) {
+    //   await getResults(args, num);
+    //   await getResults(args, num+1);
+    //   await getResults(args, num+2);
+    //   await getResults(args, num+3);
+    // }
 
     public class ConsoleReporter : IErrorReporter
     {
